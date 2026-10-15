@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-15T03:39:10.340Z",
+  "packaged": true,
+  "checks": [
+    "Collie inicia com a logo enviada, uma aba e renderer isolado",
+    "Novo e Abrir criam abas; alternar mantém rascunhos, modo Fonte e salva a aba correta",
+    "Cancelar fechamento conserva aba alterada; janela verifica alterações em todas as abas",
+    "Mil parágrafos no visual: apenas rolagem do documento, sem scrollbar de página duplicada",
+    "Arquivo de 1213829 bytes e 12 mil seções abre em 98 ms; rolagem virtual alcança o fim sem truncar e salva o arquivo inteiro",
+    "Busca e sumário virtualizados alcançam as últimas seções do arquivo grande",
+    "Abas e atalhos de lateral/fonte no rodapé; ferramentas flutuam acima dele",
+    "Exportação PDF continua funcional",
+    "Tema escuro e janela mínima mantêm os controles inferiores e a lateral funcionais"
+  ],
+  "errors": [],
+  "largeBytes": 1213829,
+  "openMs": 98
+}

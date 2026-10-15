@@ -1,0 +1,5 @@
+node_modules/
+releases/
+work/
+outputs/*.zip
+renderer/app.bundle.js

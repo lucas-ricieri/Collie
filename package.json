@@ -1,0 +1,35 @@
+{
+  "name": "collie-editor",
+  "productName": "Collie",
+  "version": "0.2.0",
+  "description": "Editor Markdown local para Windows, com interface original em português.",
+  "private": true,
+  "main": "main.cjs",
+  "author": "Projeto do usuário",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "npm run build && electron .",
+    "package": "node scripts/package.mjs",
+    "test": "npm run build && node tests/editor.test.cjs"
+  },
+  "dependencies": {
+    "@codemirror/lang-markdown": "6.5.2",
+    "@tiptap/core": "3.32.0",
+    "@tiptap/extension-image": "3.32.0",
+    "@tiptap/extension-table": "3.32.0",
+    "@tiptap/extension-task-item": "3.32.0",
+    "@tiptap/extension-task-list": "3.32.0",
+    "@tiptap/markdown": "3.32.0",
+    "@tiptap/pm": "3.32.0",
+    "@tiptap/starter-kit": "3.32.0",
+    "codemirror": "6.0.2",
+    "sanitize-html": "2.18.1"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "44.7.2",
+    "esbuild": "0.28.2",
+    "playwright-core": "1.64.1"
+  }
+}
