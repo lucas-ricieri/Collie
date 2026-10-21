@@ -9,6 +9,10 @@ Extraia **todo** o arquivo `Collie-Windows-x64.zip` e abra `Collie.exe` dentro d
 ## Recursos desta versão
 
 - Edição visual de títulos, parágrafos, negrito, itálico, riscado, citações, links, listas, tarefas, tabelas e blocos de código.
+- Cabeçalho compacto: Abrir com busca nas abas da sessão, Nova aba, nome e estado centralizados, informações do documento, menu principal e fechar janela.
+- Abrir vários arquivos de uma vez, cada um em sua aba; erros individuais não impedem os demais.
+- A lateral fica recolhida e serve apenas para navegar pelos títulos. Abra pelo botão de estrutura no rodapé ou pelo menu principal.
+- Salvar, Salvar como, busca, modo foco, exportação e tema ficam no menu principal. O botão de informações mostra caminho, estado, palavras, caracteres, linhas, tamanho UTF-8 e modo de edição.
 - Múltiplas abas na parte inferior: Novo e Abrir sempre criam uma aba; rascunhos e posição são preservados ao alternar.
 - Botões de lateral/Fonte no rodapé e barra de formatação flutuante acima dele.
 - Fonte com CodeMirror virtualizado, sumário virtualizado e indexação em worker.
@@ -24,8 +28,9 @@ Markdown continua sendo o formato do arquivo. Apenas alternar entre os modos dev
 
 | Ação | Atalho |
 |---|---|
-| Novo / Abrir | Ctrl+N / Ctrl+O |
+| Novo / Abrir | Ctrl+N ou Ctrl+T / Ctrl+O |
 | Fechar aba / próxima aba | Ctrl+W / Ctrl+Tab |
+| Aba anterior / selecionar aba | Ctrl+Shift+Tab / Alt+1–9 |
 | Salvar / Salvar como | Ctrl+S / Ctrl+Shift+S |
 | Negrito / Itálico | Ctrl+B / Ctrl+I |
 | Inserir ou editar link | Ctrl+K |
@@ -42,11 +47,15 @@ No visual, digite `# ` para um título, `> ` para uma citação ou `- ` para uma
 
 Esta é uma versão inicial, sem paridade completa com o Typora. Não inclui Mermaid, renderização matemática, conversão com Pandoc, biblioteca de pastas, sincronização, instalação no menu Iniciar ou associação automática de `.md`.
 
-Não há salvamento automático nem recuperação de rascunho: use Ctrl+S. Arquivos alterados por outro programa não são monitorados. O limite de leitura/escrita é de 12 MB; documentos grandes abrem em Fonte otimizada quando têm mais de 200.000 caracteres ou 3.000 quebras de linha. A conversão visual continua disponível com confirmação. Um documento sintético de 1,2 MB e 12 mil seções foi percorrido e salvo integralmente; isso não garante o mesmo tempo para qualquer documento. O texto é tratado como UTF-8 e o BOM inicial é removido.
+Não há salvamento automático nem recuperação de rascunho: use Ctrl+S. Arquivos alterados por outro programa não são monitorados. O limite de leitura/escrita é de 64 MiB por arquivo UTF-8; documentos grandes abrem em Fonte otimizada quando têm mais de 200.000 caracteres ou 3.000 quebras de linha. No modo Fonte grande, o realce de sintaxe e a quebra automática de linhas ficam desativados para reduzir o custo; linhas compridas têm rolagem horizontal. A conversão visual continua disponível com confirmação. Documentos sintéticos de 1,2 MB com 12 mil seções e de 18,3 MB foram percorridos e salvos integralmente; isso não garante o mesmo tempo para qualquer documento. O texto é tratado como UTF-8 e o BOM inicial é removido. Arquivos com codificação inválida são recusados para evitar gravar caracteres substituídos. A abertura mantém o arquivo inteiro em memória; 64 MiB é um limite aceito, não uma garantia de fluidez nesse tamanho. A exportação HTML/PDF mantém seu limite próprio de 24 MiB de HTML.
 
 Imagens remotas são bloqueadas nesta versão offline. A resolução de caminhos relativos de imagens ao documento original não está implementada. A exportação só incorpora imagens em data URI e pode simplificar formatos especiais. Links são editáveis, mas não abrem páginas externas a partir do editor.
 
 O executável é portátil e não tem assinatura digital, instalador ou atualização automática. Veja os resultados efetivamente exercitados em `outputs/testes-desenvolvimento.json` e, após o teste do executável, `outputs/testes-pacote.json`.
+
+## Investigação do GNOME Text Editor
+
+Veja [evidências e decisões](outputs/INVESTIGACAO-GNOME.md), incluindo fontes oficiais, diferenças de arquitetura e validação atual em Linux. O registro inicial está em `outputs/testes-gnome.json`; os 14 grupos atuais, incluindo o cabeçalho da referência enviada, estão em `outputs/testes-header.json`. Veja também `outputs/HEADER-COLLIE.md`. As capturas em `outputs/Collie-previa.png`, `outputs/Collie-escuro.png` e `outputs/Collie-arquivo-grande.png` mostram o código atual. Os resultados anteriores de Windows referem-se à versão anterior; esta alteração ainda não foi empacotada nem testada no Windows.
 
 ## Desenvolver e recompilar
 

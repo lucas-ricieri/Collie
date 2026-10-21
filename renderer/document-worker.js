@@ -1,3 +1,9 @@
+function countCharacters(text) {
+  let count = 0;
+  for (const character of text) count++;
+  return count;
+}
+
 // Index immutable text snapshots off the UI thread. Never execute document content.
 self.onmessage = ({ data }) => {
   const { id, generation, text } = data;
@@ -18,5 +24,5 @@ self.onmessage = ({ data }) => {
     for (const _word of line.matchAll(/[\p{L}\p{N}]+(?:[’'-][\p{L}\p{N}]+)*/gu)) words++;
     offset += line.length + 1;
   }
-  self.postMessage({ id, generation, headings, words });
+  self.postMessage({ id, generation, headings, words, characters: countCharacters(text), lines: lines.length, bytes: new TextEncoder().encode(text).byteLength });
 };

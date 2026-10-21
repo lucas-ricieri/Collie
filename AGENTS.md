@@ -10,7 +10,9 @@ O **Collie** é um editor Markdown local para Windows, inspirado na experiência
 - Edição visual e edição do código Markdown.
 - Cada arquivo aberto e cada documento novo cria uma nova aba, mesmo quando há alterações em outras abas. Não substituir o documento ativo nem pedir descarte ao simplesmente abrir/criar outro.
 - Abas de arquivos na barra inferior, com nome, indicação de alteração e botão de fechar.
-- Botões de lateral e código fonte na barra inferior.
+- Botões de navegação por títulos e código fonte na barra inferior. A lateral começa recolhida e contém exclusivamente títulos do documento e controle de fechar; não colocar logo, cartão de arquivo, Novo/Abrir ou tema nela.
+- Cabeçalho inspirado na referência do GNOME: Abrir com menu pesquisável das abas da sessão, nova aba, título/estado centralizados, informações do documento, menu principal e fechar janela. Salvar, exportar, busca, foco e tema ficam no menu principal. A imagem Collie permanece no item de ajuda do menu e no ícone do aplicativo.
+- Informações do documento incluem nome, caminho, estado, palavras, caracteres Unicode, linhas, tamanho UTF-8 e modo. Calcular estatísticas no worker; ignorar índices antigos. Fechar janela pelo cabeçalho usa IPC específico validado e a proteção já existente de alterações não salvas.
 - Barra de formatação flutuante, centralizada acima da barra inferior, conforme as referências do usuário.
 - Logo: imagem de border collie fornecida pelo usuário, preservada em `assets/collie-logo.jpg`. O ícone Windows é derivado dessa imagem. Não substituir a identidade por uma imagem gerada sem solicitação.
 - Temas claro/escuro, foco, sumário, busca, contagem de palavras, abrir/salvar Markdown e exportar HTML/PDF.
@@ -74,6 +76,7 @@ O problema relatado pelo usuário envolvia documentos extensos e barras de rolag
 - Não executar parse completo do Markdown na thread da interface para atualizar palavras/sumário em cada tecla. Usar o worker e debounce.
 - Respostas do worker precisam ser associadas à identidade da aba e à geração do texto. Ignorar respostas antigas e respostas de abas fechadas.
 - O sumário também é virtualizado: montar apenas as linhas próximas do viewport, sem criar milhares de botões de uma vez.
+- No modo Fonte grande, desativar parser Markdown, realce, correspondência de colchetes, realce de ocorrências e quebra automática de linhas; linhas extensas têm rolagem horizontal. Reconfigurar com `Compartment` preservando histórico; alterações iniciadas pelo listener de edição devem ser aplicadas após a atualização do CodeMirror.
 - Atualmente, documentos com **mais de 200.000 caracteres ou mais de 3.000 quebras de linha** abrem em Fonte otimizada. O usuário pode solicitar o visual, com explicação do custo. Esses valores são limites de estratégia de apresentação, não limites de conteúdo nem garantias universais de desempenho.
 - Não chamar o sistema de carregamento de dados infinito: os arquivos são locais. O comportamento implementado é rolagem/DOM virtualizados no modo Fonte e no sumário.
 - Testar início, meio e fim, navegação por busca/sumário, troca de abas e gravação integral. Não validar desempenho apenas com a página de boas-vindas.
@@ -86,7 +89,7 @@ O problema relatado pelo usuário envolvia documentos extensos e barras de rolag
 - As abas inferiores devem suportar navegação por teclado e fechamento individual.
 - Menus flutuantes da barra inferior devem abrir para cima e permanecer dentro da janela.
 - Não deixar atalhos duplicados no menu Electron e em handlers do renderer: isso pode abrir dois diálogos ou executar a ação duas vezes.
-- Atalhos principais: Ctrl+N nova aba; Ctrl+O abrir; Ctrl+S salvar; Ctrl+Shift+S salvar como; Ctrl+W fechar aba; Ctrl+Tab/Ctrl+Shift+Tab alternar abas; Ctrl+/ alternar Fonte; Ctrl+F buscar; F8 foco; Ctrl+Shift+T tema.
+- Atalhos principais: Ctrl+N ou Ctrl+T nova aba; Ctrl+O abrir; Ctrl+S salvar; Ctrl+Shift+S salvar como; Ctrl+W fechar aba; Ctrl+Tab/Ctrl+Shift+Tab alternar abas; Ctrl+/ alternar Fonte; Ctrl+F buscar; F8 foco; Ctrl+Shift+T tema.
 - Verificar tema claro, tema escuro e largura mínima da janela. Não sacrificar os botões de lateral/Fonte nem as abas no layout menor.
 
 ## Regras do Electron e dos arquivos
@@ -131,6 +134,7 @@ Remove-Item Env:COLLIE_TEST_EXE
 - Os testes devem usar documentos temporários em `work`, nunca alterar documentos pessoais do usuário.
 - Diálogos podem ser substituídos por respostas controladas nos testes; documentar que isso não é validação manual do diálogo nativo.
 - Exercitar abas novas, rascunhos em abas inativas, fechar/cancelar, salvar a aba correta, modo Fonte, tema, barra inferior e exportação.
+- O teste adicional de 21/10/2026 lê e grava um arquivo UTF-8 de 18.256.046 bytes, verifica recuperação da rolagem/histórico ao trocar de abas, busca no fim, seleção múltipla com erro parcial, limite de 64 MiB, UTF-8 inválido, Ctrl+T, clique do meio e passagem ao modo grande durante a edição. Resultado inicial em `outputs/testes-gnome.json`; com o novo cabeçalho, resultado atual em `outputs/testes-header.json` (14 grupos, menus, informações, navegação e fechamento pelo cabeçalho), atualmente apenas Linux/desenvolvimento; preservar a distinção dos resultados Windows antigos.
 - O teste de regressão atual cria um documento de aproximadamente 1,2 MB com 12 mil seções, percorre o fim e compara o arquivo salvo inteiro. Também verifica mil parágrafos no visual e ausência de rolagem duplicada.
 - Medições em uma máquina e arquivo sintético são evidência localizada, não promessa de desempenho em qualquer arquivo.
 - Conferir visualmente as capturas de tela e testar o executável empacotado antes de afirmar que a versão Windows está pronta.
@@ -139,7 +143,7 @@ Remove-Item Env:COLLIE_TEST_EXE
 
 ## Limites conhecidos a considerar
 
-- O limite atual de leitura/escrita no processo principal é de 12 MB, tratado como texto UTF-8; o BOM inicial é removido.
+- O limite atual de leitura/escrita no processo principal é de 64 MiB por arquivo, tratado como texto UTF-8 estrito; o BOM inicial é removido. O diálogo permite seleção múltipla e retorna `documents` e `errors`; cada sucesso cria uma aba e os erros são apresentados juntos. O arquivo completo permanece na memória; não há leitura sob demanda do disco. Exportação mantém seu limite de 24 MiB de HTML.
 - Não há salvamento automático, recuperação após encerramento, monitoramento de alterações externas ou sincronização.
 - Não há equivalência completa de dialetos Markdown. Fórmulas, Mermaid, Pandoc e biblioteca de pastas ainda não estão implementados.
 - Imagens remotas são bloqueadas. Caminhos de imagens relativos ao documento original ainda não são resolvidos automaticamente.

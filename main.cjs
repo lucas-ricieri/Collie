@@ -8,7 +8,7 @@ const { pathToFileURL } = require('node:url');
 const sanitizeHtml = require('sanitize-html');
 
 const APP_NAME = 'Collie';
-const MAX_DOCUMENT_BYTES = 12 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES = 64 * 1024 * 1024;
 const MAX_EXPORT_BYTES = 24 * 1024 * 1024;
 const ENTRY_PATH = path.join(__dirname, 'renderer', 'index.html');
 const ENTRY_URL = pathToFileURL(ENTRY_PATH).href;
@@ -192,20 +192,39 @@ function exportDocument(rawHtml, suggestedName) {
 }
 
 function registerIpc() {
+  ipcMain.handle('collie:close-window', event => {
+    requireTrustedSender(event);
+    mainWindow.close();
+  });
   ipcMain.handle('collie:open', async event => {
     requireTrustedSender(event);
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: 'Abrir documento Markdown', properties: ['openFile'],
+      title: 'Abrir documentos', properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'Markdown e texto', extensions: ['md','markdown','mdown','txt'] }, { name: 'Todos os arquivos', extensions: ['*'] }]
     });
-    if (result.canceled || !result.filePaths[0]) return { canceled: true };
-    const filePath = path.resolve(result.filePaths[0]);
-    const info = await fs.stat(filePath);
-    if (!info.isFile() || info.size > MAX_DOCUMENT_BYTES) throw new Error('Selecione um arquivo de texto com até 12 MB.');
-    const buffer = await fs.readFile(filePath);
-    if (buffer.includes(0)) throw new Error('Este arquivo não parece ser texto UTF-8.');
-    approvedPaths.add(keyForPath(filePath));
-    return { canceled: false, path: filePath, content: buffer.toString('utf8').replace(/^\uFEFF/, '') };
+    if (result.canceled || !result.filePaths.length) return { canceled: true };
+    // Read sequentially to avoid allocating all selected buffers concurrently.
+    // One unreadable file must not prevent opening the other selected documents.
+    const documents = [];
+    const errors = [];
+    for (const selectedPath of result.filePaths) {
+      const filePath = path.resolve(selectedPath);
+      try {
+        const handle = await fs.open(filePath, 'r');
+        let buffer;
+        try {
+          const info = await handle.stat();
+          if (!info.isFile() || info.size > MAX_DOCUMENT_BYTES) throw new Error('Selecione um arquivo de texto com até 64 MiB.');
+          buffer = await handle.readFile();
+          if (buffer.length > MAX_DOCUMENT_BYTES) throw new Error('O arquivo excede 64 MiB.');
+        } finally { await handle.close(); }
+        if (buffer.includes(0)) throw new Error('Este arquivo não parece ser texto UTF-8.');
+        const content = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+        approvedPaths.add(keyForPath(filePath));
+        documents.push({ path: filePath, content });
+      } catch (error) { errors.push({ name: path.basename(filePath), message: error.message }); }
+    }
+    return { canceled: false, documents, errors };
   });
   ipcMain.handle('collie:save', async (event, payload) => {
     requireTrustedSender(event);

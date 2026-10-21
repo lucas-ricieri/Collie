@@ -1,5 +1,7 @@
 # Collie 0.2.0 — validação da entrega
 
+> Registro histórico de Windows. Para a alteração de 21/10/2026, consultar `INVESTIGACAO-GNOME.md` e `testes-gnome.json`. As capturas clara/escura foram atualizadas no teste Linux. O pacote Windows abaixo não inclui as alterações posteriores.
+
 Data: 15/10/2026. Ambiente: Windows x64, Electron 44.7.2.
 
 ## Resultado

@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 const COMMANDS = new Set(['close-tab','next-tab','previous-tab','new','open','save','save-as','export-html','export-pdf','source','focus','theme','find']);
 
 contextBridge.exposeInMainWorld('desktop', Object.freeze({
+  closeWindow: () => ipcRenderer.invoke('collie:close-window'),
   openFile: () => ipcRenderer.invoke('collie:open'),
   saveFile: payload => ipcRenderer.invoke('collie:save', {
     path: payload?.path, content: payload?.content, saveAs: payload?.saveAs === true

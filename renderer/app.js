@@ -184,13 +184,14 @@ function activateTab(id) {
   $('#find-input').value = '';
   $('#find-bar').hidden = true;
   if (state.codeState && state.codeRaw === state.raw) source.restore(state.codeState);
-  else { source.value = state.raw; state.codeRaw = state.raw; }
+  else { source.load(state.raw, state.large); state.codeRaw = state.raw; }
   if (!editor) makeEditor('');
   if (!state.source) {
     if (state.visualState && state.visualRaw === state.raw) editor.view.updateState(state.visualState);
     else makeEditor(state.raw);
   }
   applyMode(); updateDirty(); refreshDocument();
+  if (state.source) source.focus(); else editor.commands.focus();
   const strip = $('#document-tabs');
   const activeBounds = strip.querySelector('.active').getBoundingClientRect();
   const stripBounds = strip.getBoundingClientRect();
@@ -232,6 +233,9 @@ function renderTabs() {
       select.append(dot, label); select.addEventListener('click', () => activateTab(tab.id));
       const close = document.createElement('button'); close.className = 'tab-close'; close.textContent = '×';
       close.addEventListener('click', () => closeTab(tab.id).catch(reportError));
+      row.addEventListener('auxclick', event => {
+        if (event.button === 1) { event.preventDefault(); closeTab(tab.id).catch(reportError); }
+      });
       row.append(select, close); list.append(row);
     }
     existing.delete(tab.id);
@@ -260,6 +264,7 @@ async function closeTab(id = state.id) {
   else if (tab === state) { state = {}; activateTab(tabs[Math.min(position, tabs.length - 1)].id); }
   else updateDirty();
   renderTabs();
+  if (state.source) source.focus(); else editor.commands.focus();
 }
 
 $('#document-tabs').addEventListener('keydown', event => {
@@ -276,14 +281,16 @@ $('#document-tabs').addEventListener('keydown', event => {
 function updateDirty() {
   state.dirty = state.raw !== state.saved;
   $('#file-name').textContent = state.name;
-  $('#sidebar-name').textContent = state.name;
-  $('#sidebar-detail').textContent = state.path ? 'Arquivo local · Markdown' : 'Arquivo Markdown';
-  $('#sidebar-name').title = state.path || state.name;
+  $('#file-name').title = state.path || state.name;
+  $('#file-subtitle').textContent = state.path ? (state.dirty ? 'Alterações não salvas' : 'Salvo no dispositivo') : 'Rascunho';
+  $('#file-subtitle').title = state.path || 'Este documento ainda não foi salvo em um arquivo.';
   $('#dirty-dot').hidden = !state.dirty;
   $('#save-status-dot').classList.toggle('dirty', state.dirty);
   $('#save-status').textContent = state.dirty ? 'Alterações não salvas' : state.path ? 'Salvo' : 'Pronto para escrever';
   document.title = `${state.dirty ? '● ' : ''}${state.name} — Collie`;
   renderTabs();
+  if ($('#open-menu').open) renderOpenDocuments();
+  if ($('#document-info').open) updateDocumentInfo();
   if (desktop?.setTitle) Promise.resolve(desktop.setTitle({ name: state.name, dirty: tabs.some(tab => tab.raw !== tab.saved), unsavedCount: tabs.filter(tab => tab.raw !== tab.saved).length })).catch(() => {});
 }
 
@@ -296,6 +303,55 @@ function showStatistics() {
   const words = state.index?.words || 0;
   $('#word-count').textContent = `${words.toLocaleString('pt-BR')} ${words === 1 ? 'palavra' : 'palavras'}`;
   $('#reading-time').textContent = `${Math.max(1, Math.ceil(words / 200))} min de leitura`;
+  if ($('#document-info').open) updateDocumentInfo();
+}
+
+function updateDocumentInfo() {
+  const current = state.indexedRaw === state.raw && state.index?.generation === state.generation;
+  $('#info-name').textContent = state.name;
+  $('#info-path').textContent = state.path || 'Ainda não salvo em arquivo';
+  $('#info-status').textContent = state.dirty ? 'Alterações não salvas' : state.path ? 'Salvo' : 'Rascunho';
+  for (const [field, value] of [['words', state.index?.words], ['characters', state.index?.characters], ['lines', state.index?.lines]]) {
+    $(`#info-${field}`).textContent = current ? value.toLocaleString('pt-BR') : 'Calculando…';
+  }
+  $('#info-size').textContent = current ? `${(state.index.bytes / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} KiB` : 'Calculando…';
+  $('#info-mode').textContent = state.source ? (state.large ? 'Fonte otimizada' : 'Fonte Markdown') : 'Visual';
+}
+
+function renderOpenDocuments() {
+  const query = $('#open-tab-search').value.toLocaleLowerCase('pt-BR');
+  const list = $('#open-documents');
+  const fragment = document.createDocumentFragment();
+  for (const tab of tabs.filter(tab => `${tab.name} ${tab.path || ''}`.toLocaleLowerCase('pt-BR').includes(query))) {
+    const button = document.createElement('button');
+    button.className = 'open-document';
+    button.title = tab.path || 'Rascunho nesta sessão';
+    button.setAttribute('aria-current', String(tab === state));
+    const label = document.createElement('span'); label.textContent = tab.name;
+    const status = document.createElement('span'); status.className = 'open-document-status';
+    status.textContent = tab.dirty ? 'Alterado' : tab === state ? 'Atual' : tab.path ? 'Salvo' : 'Rascunho';
+    button.append(label, status);
+    button.addEventListener('click', () => { $('#open-menu').open = false; activateTab(tab.id); });
+    fragment.append(button);
+  }
+  if (!fragment.childNodes.length) {
+    const empty = document.createElement('p'); empty.className = 'menu-empty'; empty.textContent = 'Nenhuma aba encontrada.'; fragment.append(empty);
+  }
+  list.replaceChildren(fragment);
+}
+$('#open-menu summary').addEventListener('click', () => {
+  if (!$('#open-menu').open) { $('#open-tab-search').value = ''; renderOpenDocuments(); }
+});
+$('#open-menu').addEventListener('toggle', () => {
+  if ($('#open-menu').open) renderOpenDocuments();
+});
+$('#open-tab-search').addEventListener('input', renderOpenDocuments);
+$('#document-info').addEventListener('toggle', () => { if ($('#document-info').open) updateDocumentInfo(); });
+
+function toggleSidebar() {
+  const hidden = document.body.classList.toggle('sidebar-hidden');
+  $('#sidebar-toggle').setAttribute('aria-expanded', String(!hidden));
+  if (!hidden) renderOutlineRows();
 }
 
 function refreshDocument() {
@@ -381,7 +437,7 @@ function applyMode() {
   $('#visual-mode').setAttribute('aria-pressed', String(!state.source));
   $('#mode-status').textContent = state.source ? 'Fonte Markdown' : 'Edição visual';
   $('#source-note').hidden = !(state.source && (state.special || state.large));
-  $('#source-note').textContent = state.large ? 'Documento grande · Fonte com rolagem otimizada. Use </> para alternar para o visual.' : 'Sintaxe especial preservada em Fonte. A edição visual pode simplificá-la.';
+  $('#source-note').textContent = state.large ? 'Documento grande · Texto integral, rolagem contínua e realce de sintaxe desativado. Use </> para alternar para o visual.' : 'Sintaxe especial preservada em Fonte. A edição visual pode simplificá-la.';
   if (state.source) resizeSource();
   updateToolbar();
 }
@@ -400,7 +456,7 @@ async function setSource(enabled) {
     state.scrollTop = surface.scrollTop;
     state.visualState = editor.state; state.visualRaw = state.raw;
     if (state.codeState && state.codeRaw === state.raw) source.restore(state.codeState);
-    else source.value = state.raw;
+    else source.load(state.raw, state.large);
   } else {
     state.codeScrollTop = source.scrollTop;
     state.codeState = source.snapshot; state.codeRaw = state.raw;
@@ -428,8 +484,8 @@ source.addEventListener('input', () => {
   state.raw = source.value;
   state.large = isLargeDocument(state.raw);
   state.special = state.large ? state.special : hasSpecialSyntax(state.raw);
-  $('#source-note').hidden = !(state.special || state.large);
-  resizeSource();
+  source.setLarge(state.large);
+  applyMode();
   updateDirty();
   scheduleRefresh();
 });
@@ -480,7 +536,15 @@ async function newDocument() {
 async function openDocument() {
   if (desktop?.openFile) {
     const result = await desktop.openFile();
-    if (result && !result.canceled && typeof result.content === 'string') loadDocument(result.content, result.path);
+    if (!result || result.canceled) return;
+    for (const doc of result.documents || []) {
+      loadDocument(doc.content, doc.path);
+      // Let the tab strip paint between selected documents.
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    }
+    if (result.errors?.length) await ask({ title: 'Alguns arquivos não foram abertos',
+      description: result.errors.map(error => `${error.name}: ${error.message}`).join('\n'),
+      confirm: 'Continuar', cancel: null });
   } else {
     $('#file-input').value = '';
     $('#file-input').click();
@@ -488,12 +552,15 @@ async function openDocument() {
 }
 
 $('#file-input').addEventListener('change', async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-  try {
-    if (file.size > 8 * 1024 * 1024) throw new Error('O limite desta versão é de 8 MB por documento.');
-    loadDocument(await file.text(), null, file.name);
-  } catch (error) { toast(`Não foi possível abrir: ${error.message}`, 6000); }
+  for (const file of event.target.files) {
+    try {
+      if (file.size > 64 * 1024 * 1024) throw new Error('O limite é de 64 MiB por documento.');
+      const content = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
+      if (content.includes('\0')) throw new Error('Este arquivo não parece ser texto UTF-8.');
+      loadDocument(content, null, file.name);
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    } catch (error) { await ask({ title: 'Não foi possível abrir', description: `${file.name}: ${error.message}`, confirm: 'Continuar', cancel: null }); }
+  }
 });
 
 function download(content, name, type) {
@@ -707,6 +774,7 @@ function toggleTheme() {
   const dark = document.body.dataset.theme !== 'dark';
   document.body.dataset.theme = dark ? 'dark' : 'light';
   $('#theme-button').setAttribute('aria-label', `Alternar para tema ${dark ? 'claro' : 'escuro'}`);
+  $('#theme-label').textContent = `Usar tema ${dark ? 'claro' : 'escuro'}`;
   writeSetting('collie-theme', dark ? 'dark' : 'light');
 }
 
@@ -717,7 +785,12 @@ async function handleCommand(command) {
   document.querySelectorAll('details[open]').forEach((details) => { details.open = false; });
   if (operationBusy && ['new', 'open', 'save', 'save-as', 'export-html', 'export-pdf'].includes(command)) return;
   const fileOperation = ['new', 'open', 'save', 'save-as', 'export-html', 'export-pdf'].includes(command);
-  if (fileOperation) operationBusy = true;
+  if (fileOperation) {
+    operationBusy = true;
+    $('#operation-status').hidden = false;
+    $('#operation-status').textContent = command === 'open' ? 'Abrindo documentos…' : 'Preparando documento…';
+    document.querySelectorAll('[data-action="open"], [data-action="new"]').forEach(button => { button.disabled = true; });
+  }
   try {
     switch (command) {
       case 'close-tab': await closeTab(); break;
@@ -738,15 +811,20 @@ async function handleCommand(command) {
       case 'find-next': navigateSearch(1); break;
       case 'find-prev': navigateSearch(-1); break;
       case 'find-close': hideFind(); break;
-      case 'sidebar': document.body.classList.toggle('sidebar-hidden'); break;
+      case 'sidebar': toggleSidebar(); break;
+      case 'close-window': await desktop?.closeWindow?.(); break;
       case 'help': await ask({ title: 'Seu texto, com liberdade', description: 'Ctrl+N  Novo documento\nCtrl+O  Abrir Markdown\nCtrl+S  Salvar\nCtrl+Shift+S  Salvar como\nCtrl+B / Ctrl+I  Negrito / Itálico\nCtrl+K  Inserir link\nCtrl+F  Buscar no documento\nF8  Modo foco\nCtrl+/  Visual / Fonte\nCtrl+Shift+T  Alternar tema\nEsc  Fechar busca ou sair do foco\n\nO modo visual suporta Markdown comum, tabelas simples e tarefas. Ao editar visualmente, a sintaxe pode ser normalizada. Para preservar extensões especiais ou a formatação exata, edite em Fonte. Imagens remotas não são carregadas nesta versão. Não há sincronização, fórmulas ou corretor de código.', confirm: 'Voltar à escrita', cancel: null }); break;
     }
   } catch (error) { reportError(error); }
-  finally { if (fileOperation) operationBusy = false; }
+  finally { if (fileOperation) {
+    operationBusy = false;
+    $('#operation-status').hidden = true;
+    document.querySelectorAll('[data-action="open"], [data-action="new"]').forEach(button => { button.disabled = false; });
+  } }
 }
 
 document.querySelectorAll('[data-action]').forEach((button) => {
-  button.addEventListener('click', () => handleCommand(button.id === 'source-mode' ? 'source-mode' : button.dataset.action));
+  button.addEventListener('click', () => handleCommand(button.dataset.action));
 });
 
 document.addEventListener('click', (event) => {
@@ -757,9 +835,16 @@ document.addEventListener('keydown', (event) => {
   if ($('#app-dialog').open) return;
   if (event.key === 'F8' && !desktop) { event.preventDefault(); toggleFocus(); return; }
   if (event.key === 'Escape') {
-    document.querySelectorAll('details[open]').forEach((details) => { details.open = false; });
+    const expanded = [...document.querySelectorAll('details[open]')];
+    expanded.forEach(details => { details.open = false; });
+    if (expanded.length) { event.preventDefault(); expanded[0].querySelector('summary').focus(); return; }
     if (!$('#find-bar').hidden) { event.preventDefault(); hideFind(); }
     else if (state.focus) { event.preventDefault(); toggleFocus(false); }
+    return;
+  }
+  if (event.altKey && /^[1-9]$/.test(event.key)) {
+    const tab = tabs[Number(event.key) - 1];
+    if (tab) { event.preventDefault(); activateTab(tab.id); }
     return;
   }
   const modifier = event.ctrlKey || event.metaKey;
@@ -770,7 +855,10 @@ document.addEventListener('keydown', (event) => {
   const shellKeys = desktop && ['n', 'o', 's', 'f'].includes(key);
   if (shellKeys) return;
   let action;
-  if (key === 'n') action = 'new';
+  if (key === 't' && !event.shiftKey) action = 'new';
+  else if (key === 'w' && !desktop) action = 'close-tab';
+  else if (key === 'tab' && !desktop) action = event.shiftKey ? 'previous-tab' : 'next-tab';
+  else if (key === 'n') action = 'new';
   else if (key === 'o') action = 'open';
   else if (key === 's') action = event.shiftKey ? 'save-as' : 'save';
   else if (key === 'f') action = event.shiftKey ? 'focus' : 'find';
@@ -788,5 +876,7 @@ if (desktop?.onCommand) desktop.onCommand((command) => handleCommand(command));
 const savedTheme = readSetting('collie-theme');
 document.body.dataset.theme = savedTheme === 'dark' ? 'dark' : 'light';
 $('#theme-button').setAttribute('aria-label', `Alternar para tema ${savedTheme === 'dark' ? 'claro' : 'escuro'}`);
+$('#theme-label').textContent = `Usar tema ${savedTheme === 'dark' ? 'claro' : 'escuro'}`;
+$('#close-window').hidden = !desktop?.closeWindow;
 window.addEventListener('resize', () => { if (state.source) resizeSource(); });
 loadDocument(WELCOME, null, 'Boas-vindas.md');
